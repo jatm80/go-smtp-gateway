@@ -3,8 +3,9 @@
   hosts: raspberry_pi
   become: yes
   vars:
-    github_release_url: "https://github.com/jatm80/go-smtp-gateway/releases/download/v1.0.1/go-smtp-gateway_1.0.1_linux_armv6"
-    binary_dest: "/usr/local/bin/go-smtp-gateway_1.0.1_linux_armv6"
+    version: "1.0.4"
+    github_release_url: "https://github.com/jatm80/go-smtp-gateway/releases/download/v{{ version }}/go-smtp-gateway_{{ version }}_linux_armv6"
+    binary_dest: "/usr/local/bin/go-smtp-gateway_linux_armv6"
     service_name: "go-smtp-gateway"
     initd_script: "/etc/init.d/{{ service_name }}"
     env_vars:
@@ -19,12 +20,12 @@
     - name: Download binary release from GitHub
       get_url:
         url: "{{ github_release_url }}"
-        dest: "/tmp/go-smtp-gateway_1.0.1_linux_armv6"
+        dest: "/tmp/go-smtp-gateway_{{ version }}_linux_armv6"
 
     - name: Copy binary to destination
       copy:
         remote_src: true
-        src: "/tmp/go-smtp-gateway_1.0.1_linux_armv6"
+        src: "/tmp/go-smtp-gateway_{{ version }}_linux_armv6"
         dest: "{{ binary_dest }}"
 
     - name: Set permissions on binary in destination
