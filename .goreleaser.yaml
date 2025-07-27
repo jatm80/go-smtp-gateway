@@ -10,7 +10,7 @@ builds:
     goarm:
       - 6
       - 7
-    dir: src
+    dir: .
 
 archives:
   - format: binary
