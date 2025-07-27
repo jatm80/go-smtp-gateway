@@ -1,0 +1,34 @@
+builds:
+  - id: "go-smtp-gateway"
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm
+      - arm64
+    goarm:
+      - 6
+      - 7
+    dir: src
+
+archives:
+  - format: binary
+
+checksum:
+  name_template: '{{ .ProjectName }}_v{{ .Version }}_checksums.txt'
+
+dockers:
+  - id: go-smtp-gateway
+    goos: linux
+    goarch: amd64
+    image_templates:
+      - "jatm80/go-smtp-gateway:latest"
+      - "jatm80/go-smtp-gateway:{{.Version}}"
+    build_flag_templates:
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.title={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+      - "--label=org.opencontainers.image.license=Apache"
+      - "--label=org.opencontainers.image.source=https://github.com/jatm80/go-smtp-gateway.git"

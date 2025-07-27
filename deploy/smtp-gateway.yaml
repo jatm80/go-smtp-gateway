@@ -1,0 +1,86 @@
+---
+- name: Deploy binary from GitHub to Raspberry Pi (Legacy Init.d)
+  hosts: raspberry_pi
+  become: yes
+  vars:
+    github_release_url: "https://github.com/jatm80/go-smtp-gateway/releases/download/v1.1.0/go-smtp-gateway_1.1.0_linux_armv6"
+    binary_dest: "/usr/local/bin/go-smtp-gateway_1.1.0_linux_armv6"
+    service_name: "go-smtp-gateway"
+    initd_script: "/etc/init.d/{{ service_name }}"
+    common_name: "{{ lookup('pipe', 'pass JT-01/exports/go-smtp-gateway/CN') }}"
+    email: "{{ lookup('pipe', 'pass JT-01/exports/go-smtp-gateway/EMAIL') }}"
+    env_vars:
+      TELEGRAM_TOKEN: "{{ lookup('pipe', 'pass JT-01/exports/go-smtp-gateway/TELEGRAM_TOKEN') }}"
+      TELEGRAM_CHAT_ID: "{{ lookup('pipe', 'pass JT-01/exports/go-smtp-gateway/TELEGRAM_CHAT_ID') }}"
+
+  tasks:
+    - name: Download binary release from GitHub
+      get_url:
+        url: "{{ github_release_url }}"
+        dest: "/tmp/go-smtp-gateway_1.1.0_linux_armv6"
+
+    - name: Copy binary to destination
+      copy:
+        remote_src: true
+        src: "/tmp/go-smtp-gateway_1.1.0_linux_armv6"
+        dest: "{{ binary_dest }}"
+
+    - name: Set permissions on binary in destination
+      file:
+        path: "{{ binary_dest }}"
+        mode: '0755'  
+        
+    - name: Create init.d service script
+      copy:
+        dest: "{{ initd_script }}"
+        content: |
+          #!/bin/sh
+          ### BEGIN INIT INFO
+          # Provides:          {{ service_name }}
+          # Required-Start:    $remote_fs $syslog
+          # Required-Stop:     $remote_fs $syslog
+          # Default-Start:     2 3 4 5
+          # Default-Stop:      0 1 6
+          # Short-Description: Start daemon at boot time
+          # Description:       Enable service provided by daemon.
+          ### END INIT INFO
+
+          {% for var, value in env_vars.items() %}
+          export {{ var }}={{ value }}
+          {% endfor %}
+
+          case "$1" in
+            start)
+              echo "Starting {{ service_name }}"
+              {{ binary_dest }} &
+              ;;
+            stop)
+              echo "Stopping {{ service_name }}"
+              pkill -f {{ binary_dest }}
+              ;;
+            restart)
+              echo "Restarting {{ service_name }}"
+              $0 stop
+              $0 start
+              ;;
+            *)
+              echo "Usage: /etc/init.d/{{ service_name }} {start|stop|restart}"
+              exit 1
+              ;;
+          esac
+
+          exit 0
+
+    - name: Set permissions on init.d service script
+      file:
+        path: "{{ initd_script }}"
+        mode: '0755'
+      notify: 
+        - Restart service
+
+    - name: Enable init.d service to start on boot
+      command: update-rc.d {{ service_name }} defaults
+
+  handlers:
+    - name: Restart service
+      command: "/etc/init.d/{{ service_name }} restart"
