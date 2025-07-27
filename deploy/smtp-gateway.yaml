@@ -9,6 +9,7 @@
     initd_script: "/etc/init.d/{{ service_name }}"
     env_vars:
       SMTP_ADDR: "0.0.0.0:2525"
+      SMTP_DOMAIN: "gateway.home"
       SMTP_USER: "gateway"
       SMTP_PASS: "gateway"
       TELEGRAM_TOKEN: "{{ lookup('pipe', 'pass JT-01/exports/sms-gateway/TELEGRAM_TOKEN') }}"

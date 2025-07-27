@@ -22,6 +22,7 @@ import (
 
 var (
 	smtpAddr     = getEnv("SMTP_ADDR", "127.0.0.1:2525")
+	smtpDomain   = getEnv("SMTP_DOMAIN","localhost")
 	smtpUser     = getEnv("SMTP_USER","user")
 	smtpPass     = getEnv("SMTP_PASS","empty")
 	telegramBot  = os.Getenv("TELEGRAM_TOKEN")
@@ -228,7 +229,7 @@ func main() {
 	s := smtp.NewServer(be)
 
 	s.Addr = smtpAddr
-	s.Domain = "localhost"
+	s.Domain = smtpDomain
 	s.WriteTimeout = 10 * time.Second
 	s.ReadTimeout = 10 * time.Second
 	s.MaxMessageBytes = 1024 * 1024
