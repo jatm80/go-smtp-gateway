@@ -20,7 +20,6 @@ import (
 	smtp "github.com/emersion/go-smtp"
 )
 
-// Config loaded from environment variables
 var (
 	smtpAddr     = getEnv("SMTP_ADDR", "127.0.0.1:2525")
 	smtpUser     = getEnv("SMTP_USER","user")
@@ -29,9 +28,8 @@ var (
 	telegramChat = os.Getenv("TELEGRAM_CHAT_ID")
 )
 
-// Backend implements the SMTP server logic
 type Backend struct{}
-// Session implements a mail transaction
+
 type Session struct {
 	auth bool
 }
@@ -97,7 +95,6 @@ func processEmail(r io.Reader) error {
 		return err
 	}
 
-	// Collect message details
 	var subject, textBody string
 	header := mr.Header
 
@@ -111,7 +108,6 @@ func processEmail(r io.Reader) error {
 		log.Println("[EMAIL] To:", to)
 	}
 
-	// Parse parts (text & attachments)
 	for {
 		part, err := mr.NextPart()
 		if err == io.EOF {
@@ -134,12 +130,10 @@ func processEmail(r io.Reader) error {
 		}
 	}
 
-	// Send main text to Telegram
 	message := fmt.Sprintf("📧 *%s*\n%s", subject, textBody)
 	return sendToTelegram(message)
 }
 
-// Send plain text message to Telegram
 func sendToTelegram(text string) error {
 
 	telegramChatID, err := strconv.ParseInt(telegramChat, 10, 64)
@@ -171,7 +165,6 @@ func sendToTelegram(text string) error {
 	return nil
 }
 
-// Save attachment and send via Telegram
 func saveAndSendAttachment(filename string, r io.Reader) error {
 	tmpPath := "/tmp/" + filename
 	file, err := os.Create(tmpPath)
@@ -188,7 +181,6 @@ func saveAndSendAttachment(filename string, r io.Reader) error {
 	return sendFileToTelegram(tmpPath)
 }
 
-// Send file to Telegram as document
 func sendFileToTelegram(filePath string) error {
 	url := fmt.Sprintf("https://api.telegram.org/bot%s/sendDocument", telegramBot)
 
