@@ -13,11 +13,11 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/jatm80/go-smtp-gateway/send"
+	send "github.com/jatm80/go-smtp-gateway/send"
 
-	"github.com/emersion/go-message/mail"
-	"github.com/emersion/go-sasl"
-	"github.com/emersion/go-smtp"
+	mail "github.com/emersion/go-message/mail"
+	sasl "github.com/emersion/go-sasl"
+	smtp "github.com/emersion/go-smtp"
 )
 
 // Config loaded from environment variables
@@ -202,7 +202,10 @@ func sendFileToTelegram(filePath string) error {
 	writer := multipart.NewWriter(body)
 	part, _ := writer.CreateFormFile("document", filePath)
 	_, _ = io.Copy(part, file)
-	writer.WriteField("chat_id", telegramChat)
+	err = writer.WriteField("chat_id", telegramChat)
+		if err != nil {
+		return err
+	}
 	writer.Close()
 
 	req, _ := http.NewRequest("POST", url, body)
