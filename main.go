@@ -51,7 +51,7 @@ func (s *Session) AuthMechanisms() []string {
 func (s *Session) Auth(mech string) (sasl.Server, error) {
 	return sasl.NewPlainServer(func(identity, username, password string) error {
 		if username != "username" || password != "password" {
-			return errors.New("Invalid username or password")
+			return errors.New("invalid username or password")
 		}
 		s.auth = true
 		return nil
@@ -227,7 +227,7 @@ func getEnv(key, fallback string) string {
 }
 
 func main() {
-	if smtpUser == "" || smtpPass == "" || telegramBot == "" || telegramChat == "" {
+	if telegramBot == "" || telegramChat == "" {
 		log.Fatal("[ERROR] Missing required environment variables.")
 	}
 
