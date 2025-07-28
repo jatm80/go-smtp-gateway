@@ -3,7 +3,7 @@
   hosts: raspberry_pi
   become: yes
   vars:
-    version: "1.0.4"
+    version: "0.1.0"
     github_release_url: "https://github.com/jatm80/go-smtp-gateway/releases/download/v{{ version }}/go-smtp-gateway_{{ version }}_linux_armv6"
     binary_dest: "/usr/local/bin/go-smtp-gateway_linux_armv6"
     service_name: "go-smtp-gateway"

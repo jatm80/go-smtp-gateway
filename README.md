@@ -10,8 +10,8 @@ ansible-playbook -i inventory.ini smtp-gateway.yaml
 ## `Test`
 
 ```
-netcat localhost 2525
-EHLO localhost
+netcat gateway.home 2525
+EHLO gateway.home
 AUTH PLAIN 
 AGdhdGV3YXkAZ2F0ZXdheQ==
 MAIL FROM:<root@nas.local>
