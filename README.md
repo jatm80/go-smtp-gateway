@@ -10,10 +10,10 @@ ansible-playbook -i inventory.ini smtp-gateway.yaml
 ## `Test`
 
 ```
-netcat 192.168.1.100 2525
+netcat localhost 2525
 EHLO localhost
 AUTH PLAIN 
-AHVzZXJuYW1lAHBhc3N3b3Jk
+AGdhdGV3YXkAZ2F0ZXdheQ==
 MAIL FROM:<root@nas.local>
 RCPT TO:<info@test.local>
 DATA
@@ -25,8 +25,8 @@ Hello from the SMTP test.
 where
 
 ```
-echo "AHVzZXJuYW1lAHBhc3N3b3Jk" | base64 -d
-usernamepassword%     
+echo "AGdhdGV3YXkAZ2F0ZXdheQ==" | base64 -d
+gatewaygateway
 ```
 
 ![alt text](image.png)

@@ -2,6 +2,8 @@ package main
 
 import (
 	"bytes"
+	"crypto/md5"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -33,6 +35,8 @@ type Backend struct{}
 
 type Session struct {
 	auth bool
+	from string
+	to string
 }
 type OutboundMsg struct {
 	ChatID int64  `json:"chat_id"`
@@ -49,6 +53,12 @@ func (s *Session) AuthMechanisms() []string {
 
 func (s *Session) Auth(mech string) (sasl.Server, error) {
 	return sasl.NewPlainServer(func(identity, username, password string) error {
+		hasher := md5.New()
+		fmt.Fprintf(hasher, "%s%s", username, password)
+		hashInBytes := hasher.Sum(nil)
+		md5Hash := hex.EncodeToString(hashInBytes)
+		fmt.Printf("Auth MD5 Hash: %s\n", md5Hash)
+
 		if username != smtpUser || password != smtpPass {
 			return errors.New("invalid username or password")
 		}
@@ -62,6 +72,7 @@ func (s *Session) Mail(from string, opts *smtp.MailOptions) error {
 		return smtp.ErrAuthRequired
 	}
 	log.Println("Mail from:", from)
+	s.from = from
 	return nil
 }
 
@@ -70,6 +81,7 @@ func (s *Session) Rcpt(to string, opts *smtp.RcptOptions) error {
 		return smtp.ErrAuthRequired
 	}
 	log.Println("Rcpt to:", to)
+	s.to = to
 	return nil
 }
 
@@ -78,7 +90,7 @@ func (s *Session) Data(r io.Reader) error {
 		return smtp.ErrAuthRequired
 	}
 	log.Println("[SMTP] Email received")
-	if err := processEmail(r); err != nil {
+	if err := processEmail(r,s); err != nil {
 		log.Println("[ERROR] Processing email:", err)
 	}
 	return nil
@@ -90,7 +102,7 @@ func (s *Session) Logout() error {
 	return nil
 }
 
-func processEmail(r io.Reader) error {
+func processEmail(r io.Reader, s *Session) error {
 	mr, err := mail.CreateReader(r)
 	if err != nil {
 		return err
@@ -101,12 +113,6 @@ func processEmail(r io.Reader) error {
 
 	if subj, err := header.Subject(); err == nil {
 		subject = subj
-	}
-	if from, err := header.AddressList("From"); err == nil {
-		log.Println("[EMAIL] From:", from)
-	}
-	if to, err := header.AddressList("To"); err == nil {
-		log.Println("[EMAIL] To:", to)
 	}
 
 	for {
@@ -131,7 +137,7 @@ func processEmail(r io.Reader) error {
 		}
 	}
 
-	message := fmt.Sprintf("📧 *%s*\n%s", subject, textBody)
+	message := fmt.Sprintf("📧 %s\n\n*%s*\n%s",s.from, subject, textBody)
 	return sendToTelegram(message)
 }
 
