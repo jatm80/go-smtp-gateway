@@ -31,6 +31,15 @@ var (
 	telegramChat = os.Getenv("TELEGRAM_CHAT_ID")
 )
 
+const (
+	loginNotStarted loginState = iota
+	loginWaitingUsername
+	loginWaitingPassword
+)
+
+type LoginAuthenticator func(username, password string) error
+type loginState int
+
 type Backend struct{}
 
 type Session struct {
@@ -43,29 +52,84 @@ type OutboundMsg struct {
 	Text   string `json:"text"`
 }
 
+type loginAuthServer struct {
+	state              loginState
+	username, password string
+	authenticate       LoginAuthenticator
+}
+
 func (bkd *Backend) NewSession(c *smtp.Conn) (smtp.Session, error) {
 	return &Session{}, nil
 }
 
 func (s *Session) AuthMechanisms() []string {
-	return []string{sasl.Plain}
+	return []string{sasl.Plain,sasl.Login}
 }
 
 func (s *Session) Auth(mech string) (sasl.Server, error) {
-	return sasl.NewPlainServer(func(identity, username, password string) error {
-		hasher := md5.New()
-		fmt.Fprintf(hasher, "%s%s", username, password)
-		hashInBytes := hasher.Sum(nil)
-		md5Hash := hex.EncodeToString(hashInBytes)
-		fmt.Printf("Auth MD5 Hash: %s\n", md5Hash)
+	switch mech {
+	case sasl.Plain: 	
+		return sasl.NewPlainServer(func(identity, username, password string) error {
+			hasher := md5.New()
+			fmt.Fprintf(hasher, "%s%s", username, password)
+			hashInBytes := hasher.Sum(nil)
+			md5Hash := hex.EncodeToString(hashInBytes)
+			fmt.Printf("Auth MD5 Hash: %s\n", md5Hash)
 
-		if username != smtpUser || password != smtpPass {
-			return errors.New("invalid username or password")
-		}
+			if username != smtpUser || password != smtpPass {
+				return errors.New("invalid username or password")
+			}
+			s.auth = true
+			return nil
+	}), nil
+
+	case sasl.Login: 
+		return NewLoginServer(func(username, password string) error {
+			hasher := md5.New()
+			fmt.Fprintf(hasher, "%s%s", username, password)
+			hashInBytes := hasher.Sum(nil)
+			md5Hash := hex.EncodeToString(hashInBytes)
+			fmt.Printf("Auth MD5 Hash: %s\n", md5Hash)
+			if username != smtpUser || password != smtpPass {
+				return errors.New("invalid username or password")
+			}
 		s.auth = true
 		return nil
-	}), nil
+		}), nil
+	default:
+		return nil, fmt.Errorf("unsupported auth mechanism: %s", mech)
+	}
 }
+
+func NewLoginServer(authenticator LoginAuthenticator) sasl.Server {
+	return &loginAuthServer{authenticate: authenticator}
+}
+
+func (a *loginAuthServer) Next(response []byte) (challenge []byte, done bool, err error) {
+	switch a.state {
+	case loginNotStarted:
+		// Check for initial response field, as per RFC4422 section 3
+		if response == nil {
+			challenge = []byte("Username:")
+			break
+		}
+		a.state++
+		fallthrough
+	case loginWaitingUsername:
+		a.username = string(response)
+		challenge = []byte("Password:")
+	case loginWaitingPassword:
+		a.password = string(response)
+		err = a.authenticate(a.username, a.password)
+		done = true
+	default:
+		err = sasl.ErrUnexpectedClientResponse
+	}
+
+	a.state++
+	return
+}
+
 
 func (s *Session) Mail(from string, opts *smtp.MailOptions) error {
 	if !s.auth {
@@ -103,6 +167,7 @@ func (s *Session) Logout() error {
 }
 
 func processEmail(r io.Reader, s *Session) error {
+	
 	mr, err := mail.CreateReader(r)
 	if err != nil {
 		return err
