@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"crypto/md5"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -12,10 +11,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"os"
-	"strconv"
 	"time"
-
-	send "github.com/jatm80/go-smtp-gateway/send"
 
 	mail "github.com/emersion/go-message/mail"
 	sasl "github.com/emersion/go-sasl"
@@ -189,71 +185,22 @@ func processEmail(r io.Reader, s *Session) error {
 			return err
 		}
 
-		switch h := part.Header.(type) {
-		case *mail.InlineHeader:
-			body, _ := io.ReadAll(part.Body)
-			textBody += string(body)
-		case *mail.AttachmentHeader:
-			filename, _ := h.Filename()
-			log.Println("[ATTACHMENT] Saving:", filename)
-			if err := saveAndSendAttachment(filename, part.Body); err != nil {
-				log.Println("[ERROR] Sending attachment:", err)
-			}
-		}
+		body, _ := io.ReadAll(part.Body)
+		textBody += string(body)
+		mr.Close()
 	}
 
-	message := fmt.Sprintf("📧 %s\n\n*%s*\n%s",s.from, subject, textBody)
-	return sendToTelegram(message)
+	message := fmt.Sprintf("📧 %s\n*%s*",s.from, subject)
+	filename := fmt.Sprintf("/tmp/%d.html", time.Now().Unix())
+	err = os.WriteFile(filename, []byte(textBody), 0644)
+    if err != nil {
+		return err
+	}
+
+	return sendFileToTelegram(filename,message)
 }
 
-func sendToTelegram(text string) error {
-
-	telegramChatID, err := strconv.ParseInt(telegramChat, 10, 64)
-	if err != nil {
-		return err
-	}
-
-	payload, err := json.Marshal(&OutboundMsg{
-		ChatID: telegramChatID,
-		Text:   text,
-	})
-	if err != nil {
-		return err
-	}
-
-	url := fmt.Sprintf("https://api.telegram.org/bot%s/sendMessage", telegramBot)
-	c := &send.Request{
-			Path:   url,
-			Method: "POST",
-			Headers: map[string]string{
-				"Content-Type": "application/json",
-			},
-			Body: payload,
-		}
-		_, err = c.Send()
-		if err != nil {
-			return err
-		}
-	return nil
-}
-
-func saveAndSendAttachment(filename string, r io.Reader) error {
-	tmpPath := "/tmp/" + filename
-	file, err := os.Create(tmpPath)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	if _, err := io.Copy(file, r); err != nil {
-		return err
-	}
-
-	defer os.Remove(tmpPath)
-	return sendFileToTelegram(tmpPath)
-}
-
-func sendFileToTelegram(filePath string) error {
+func sendFileToTelegram(filePath string,caption string) error {
 	url := fmt.Sprintf("https://api.telegram.org/bot%s/sendDocument", telegramBot)
 
 	file, err := os.Open(filePath)
@@ -267,7 +214,11 @@ func sendFileToTelegram(filePath string) error {
 	part, _ := writer.CreateFormFile("document", filePath)
 	_, _ = io.Copy(part, file)
 	err = writer.WriteField("chat_id", telegramChat)
-		if err != nil {
+	if err != nil {
+		return err
+	}
+	err = writer.WriteField("caption", caption)
+	if err != nil {
 		return err
 	}
 	writer.Close()
